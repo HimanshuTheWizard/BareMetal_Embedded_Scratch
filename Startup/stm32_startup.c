@@ -220,7 +220,7 @@ void Reset_Handler(void)
 	uint8_t *pDST = (uint8_t*)&_sdata;
 	uint8_t *pSRC = (uint8_t*)&_la_data;//+ (uint8_t*)size
 	//Copy data sec from flash to RAM
-	size = &_edata - &_sdata;
+	size = (uint32_t)&_edata - (uint32_t)&_sdata;
 	for(i=0;i<size;i++)
 	{
 		*pDST++ = *pSRC++;

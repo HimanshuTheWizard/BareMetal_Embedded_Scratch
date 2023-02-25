@@ -30,3 +30,6 @@ final.elf: $(OBJS)
 
 clean:
 	rm -rf $(OUTPUT_SRC_DIR)/*.o $(OUTPUT_STARTUP_DIR)/*.o $(OUTPUT_DIR)/*.elf $(OUTPUT_DIR)/*.map
+	
+load:
+	openocd -f board/stm32f4discovery.cfg

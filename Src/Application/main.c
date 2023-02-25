@@ -17,6 +17,7 @@
  */
 
 #include <stdint.h>
+#include <stdio.h>
 #include "main.h"
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
@@ -33,9 +34,12 @@ typedef struct
 }TCB_t;
 
 /*---------GLOBAL VARIABLES---------*/
-uint8_t Current_task = 1;
+uint32_t Current_task = 1;
 uint32_t Global_tick_count;
 TCB_t User_task_ctl_block[MAX_TASKS_COUNT];
+
+uint32_t *pPSP;
+uint16_t j,i;
 
 int main(void)
 {
@@ -65,37 +69,49 @@ void Idle_task(void)
 
 void task1_handler(void)
 {
-	led_on(LED_GREEN);
-	task_delay(DELAY_COUNT_1S);
-	led_off(LED_GREEN);
-	task_delay(DELAY_COUNT_1S);
+	while(1)
+	{
+		led_on(LED_GREEN);
+		task_delay(1000);
+		led_off(LED_GREEN);
+		task_delay(1000);
+	}
 }
 
 void task2_handler(void)
 {
-	led_on(LED_ORANGE);
-	task_delay(DELAY_COUNT_500MS);
-	led_off(LED_ORANGE);
-	task_delay(DELAY_COUNT_500MS);
+	while(1)
+	{
+		led_on(LED_ORANGE);
+		task_delay(500);
+		led_off(LED_ORANGE);
+		task_delay(500);
+	}
 }
 void task3_handler(void)
 {
-	led_on(LED_RED);
-	task_delay(DELAY_COUNT_250MS);
-	led_off(LED_RED);
-	task_delay(DELAY_COUNT_250MS);
+	while(1)
+	{
+		led_on(LED_RED);
+		task_delay(250);
+		led_off(LED_RED);
+		task_delay(250);
+	}
 }
 void task4_handler(void)
 {
-	led_on(LED_BLUE);
-	task_delay(DELAY_COUNT_125MS);
-	led_off(LED_BLUE);
-	task_delay(DELAY_COUNT_125MS);
+	while(1)
+	{
+		led_on(LED_BLUE);
+		task_delay(125);
+		led_off(LED_BLUE);
+		task_delay(125);
+	}
 }
 
 void SysTick_Init(uint32_t freq)
 {
-	uint32_t count_val 	=  SYSTICK_CLOCK/freq;
+	uint32_t count_val 	=  (SYSTICK_CLOCK/freq)-1;
 	uint32_t *pSTK_LOAD = (uint32_t *)0xE000E014;
 	uint32_t *STK_CTRL  = (uint32_t *)0xE000E010;
 
@@ -116,13 +132,10 @@ __attribute__((naked)) void Scheduler_Stack_Init(uint32_t scheduler_stack_start)
 
 void Tasks_Stack_Init(void)
 {
-	uint32_t *pPSP;
-	uint16_t j,i;
-
 	User_task_ctl_block[0].psp_value = IDLE_STACK_START;
-	User_task_ctl_block[1].psp_value = TASK2_STACK_START;
-	User_task_ctl_block[2].psp_value = TASK3_STACK_START;
-	User_task_ctl_block[3].psp_value = TASK4_STACK_START;
+	User_task_ctl_block[1].psp_value = TASK1_STACK_START;
+	User_task_ctl_block[2].psp_value = TASK2_STACK_START;
+	User_task_ctl_block[3].psp_value = TASK3_STACK_START;
 	User_task_ctl_block[4].psp_value = TASK4_STACK_START;
 
 	User_task_ctl_block[0].task_handler = Idle_task;
@@ -131,11 +144,11 @@ void Tasks_Stack_Init(void)
 	User_task_ctl_block[3].task_handler = task3_handler;
 	User_task_ctl_block[4].task_handler = task4_handler;
 
-	User_task_ctl_block[0].running_state = RUNNING_STATE;
-	User_task_ctl_block[1].running_state = RUNNING_STATE;
-	User_task_ctl_block[2].running_state = RUNNING_STATE;
-	User_task_ctl_block[3].running_state = RUNNING_STATE;
-	User_task_ctl_block[4].running_state = RUNNING_STATE;
+	User_task_ctl_block[0].running_state = READY_STATE;
+	User_task_ctl_block[1].running_state = READY_STATE;
+	User_task_ctl_block[2].running_state = READY_STATE;
+	User_task_ctl_block[3].running_state = READY_STATE;
+	User_task_ctl_block[4].running_state = READY_STATE;
 
 	for(i=0;i<MAX_TASKS_COUNT;i++)
 	{
@@ -159,7 +172,8 @@ void Tasks_Stack_Init(void)
 
 void Enable_Processor_Faults(void)
 {
-
+	uint32_t *pSHCSR = (uint32_t *)0xE000ED24;
+	*pSHCSR |= (1<<16)|(1<<17)|(1<<18);
 }
 
 void schedule(void)
@@ -179,20 +193,22 @@ void task_delay(uint32_t tick_count)
 	INTERRUPT_ENABLE();
 }
 
+
 __attribute__((naked)) void Switch_SP_to_PSP(void)
 {
-	/*initialize the PSP*/
-	__asm volatile("PUSH {LR}");			   //store LR in stack
-	__asm volatile("BL Get_Current_task_PSP"); //get the value of psp for current task
-	__asm volatile("MSR PSP, R0");
-	__asm volatile("POP {LR}");
+    //1. initialize the PSP with TASK1 stack start address
 
-	/*set SP to PSP using control register*/
-	__asm volatile("MOV R0,#0x20");
-	__asm volatile("MSR CONTROL, R0");
-	__asm volatile("BX LR");
+	//get the value of psp of current_task
+	__asm volatile ("PUSH {LR}"); //preserve LR which connects back to main()
+	__asm volatile ("BL Get_Current_task_PSP");
+	__asm volatile ("MSR PSP,R0"); //initialize psp
+	__asm volatile ("POP {LR}");  //pops back LR value
+
+	//2. change SP to PSP using CONTROL register
+	__asm volatile ("MOV R0,#0X02");
+	__asm volatile ("MSR CONTROL,R0");
+	__asm volatile ("BX LR");
 }
-
 void update_psp_value(uint32_t current_psp)
 {
 	User_task_ctl_block[Current_task].psp_value = current_psp;
@@ -211,13 +227,13 @@ void schedule_next_task(void)
 	{
 		Current_task++;
 		Current_task %= MAX_TASKS_COUNT;
-		if((User_task_ctl_block[Current_task].running_state == RUNNING_STATE) && (Current_task != 0))
+		if((User_task_ctl_block[Current_task].running_state == READY_STATE) && (Current_task != 0))
 		{
 			break;
 		}
 	}
 
-	if(User_task_ctl_block[Current_task].running_state != RUNNING_STATE)
+	if(User_task_ctl_block[Current_task].running_state != READY_STATE)
 	{
 		Current_task = 0;
 	}
@@ -267,40 +283,36 @@ void Unblocking_task(void)
 		{
 			if(User_task_ctl_block[i].block_count == Global_tick_count)
 			{
-				User_task_ctl_block[i].running_state = RUNNING_STATE;
+				User_task_ctl_block[i].running_state = READY_STATE;
 			}
 		}
 	}
 }
+
 void Pending_PendSV(void)
 {
 	uint32_t *pICSR = (uint32_t *)0xE000ED04;
 	*pICSR |= (1<<28);
 }
 
-__attribute__((naked)) void SysTick_Handler(void)
+void SysTick_Handler(void)
 {
 	update_global_tick_count();
 	Unblocking_task();
 	Pending_PendSV();
 }
-
-/*
 void HardFault_Handler(void)
 {
+	printf("Exception: Hardfault\n");
 	while(1);
 }
-
 void MemManage_Handler(void)
 {
+	printf("Exception: MemManagefault\n");
 	while(1);
 }
-
 void BusFault_Handler(void)
 {
+	printf("Exception: Busfault\n");
 	while(1);
 }
-
-*/
-
-
