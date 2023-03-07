@@ -1,2 +1,2 @@
-# STM32_BareMetal_Project
-Embedded project for blinking LEDs by scheduling parallel thread. In this project, I created all the files such as makefile, linker file from scratch.
+# STM32_Baremetal_LED_Blink_Scheduling
+Embedded project for blinking LEDs by scheduling parallel threads. The project has been created from scratch which includes writing linker script, startup file, makefile etc.
