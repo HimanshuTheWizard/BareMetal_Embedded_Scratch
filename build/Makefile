@@ -16,8 +16,12 @@ OBJS = $(OUTPUT_SRC_DIR)/main.o $(OUTPUT_SRC_DIR)/led.o $(OUTPUT_STARTUP_DIR)/st
 
 all: final.elf
 
+#main.o:main.c
 $(OUTPUT_SRC_DIR)/%.o: $(APPL_SRC)/%.c
 	$(CC) $(CFLAGS) -o $@ $<
+#   $(CC) $(CFLAGS) -o main.o main.c
+#   arm-none-eabi-objdump.exe
+#	arm-none-eabi-gcc -S/-c -mcpu=cortex-m4 -mthumb -std=gnu11 -O0 main.c -o main.s/main.o
 
 $(OUTPUT_STARTUP_DIR)/stm32_startup.o: $(STARTUP_SRC)/stm32_startup.c
 	$(CC) $(CFLAGS) -o $@ $<
